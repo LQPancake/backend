@@ -15,7 +15,9 @@ app.get("/api/users/:id", (req, res) => {
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
-  })});
+    res.json(user);
+  });
+});
 
   app.post("/api/users", (req, res) => {
     db.run(
@@ -38,24 +40,31 @@ app.get("/api/users/:id", (req, res) => {
     );
   });
 
-  app.put("/api/users/:id", (req, res) => {
-    const user = users.find((u) => u.id === req.params.id);
-    if (!user) {
-      return res.status(404).send({ message: "User not found" });
+app.put("/api/users/:id", (req, res) => {
+  const id = req.params.id;
+  db.run(
+    "UPDATE users SET name = ?, email = ? WHERE id = ?",
+    [req.body.name ?? null, req.body.email ?? null, userId],
+    function (err) {
+      if (err) {
+        return res.status(500).json({ message: err.message });
+      }
+      res.json({ ...req.body, id: Number(id) });
     }
-    user.name = req.body.name || user.name;
-    user.email = req.body.email || user.email;
-    users = users.map((u) => (u.id === user.id ? { ...u, ...user } : u));
-    res.send(user);
-  });
+  );
+});
 
   app.delete("/api/users/:id", (req, res) => {
-    const userIndex = users.findIndex((u) => u.id === req.params.id);
-    if (userIndex === -1) {
-      return res.status(404).send({ message: "Felhasználó nem található" });
-    }
-    const deletedUser = users.splice(userIndex, 1);
-    res.send(deletedUser[0]);
+    const userId = req.params.id;
+    db.run("DELETE FROM users WHERE id = ?", [userId], function (err){
+      if (err) {
+        res.status(500).send ({message: "Hiba történt a felhasználó törlésekor"})
+      } else if (this.changes === 0) {
+        res.send({ message: "Felhasználó sikeresen törölve"});
+      } else {
+      res.sendStatus(204);
+      }
+    })
   });
 
   app.listen(3000, () => {
