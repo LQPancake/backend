@@ -1,7 +1,9 @@
 const express = require("express");
 const app = express();
+const sqlite3 = require("sqlite3").verbose();
+const db = new sqlite3.Database("./database.sqlite");
 
-const honapok = [
+let honapok = [
     {
         "name": "szeptember",
         "evszak": "osz",
@@ -76,29 +78,81 @@ const honapok = [
     }
 ]
 
+// letrehozza az adatbazist
+db.serialize(() => {
+  db.run("DROP TABLE IF EXISTS honapok");
+  db.run(
+    "CREATE TABLE honapok (name TEXT, evszak TEXT, photoUrl TEXT, leiras TEXT)");
+  for (const i of honapok) {
+    db.run("INSERT INTO honapok (name, evszak, photoUrl, Leiras) VALUES (?, ?, ?, ?)", [i.name, i.evszak, i.photoUrl, i.leiras]);
+  }
+}); 
+
 app.use(express.json());
 
+// kiirja az osszes honapot
 app.get("/api/honapok", (req, res) => {
-  res.json(honapok);
+  db.all("SELECT * FROM honapok", (err, honapok) => {
+    if (err) {
+      return res.status(500).json({ message: err.message });
+    }
+    res.json(honapok);
+  });
 });
 
-app.get("/api/honapok/name", (req, res) => {
+// ki ir 1 honapot
+app.get("/api/honapok/:name", (req, res) => {
   const name = req.params.name;
-  const honap = honapok.find((h) => h.name === h);
-
-  if (!honap) {
-    return res.status(404).json({ message: "Month not found" });
-  }
-
-  res.json(user);
+  db.get("SELECT * FROM honapok WHERE name = ?", [name], (err, honap) => {
+    if (err) {
+      return res.status(500).json({ message: err.message });
+    }
+    if (!honap) {
+      return res.status(404).json({ message: "Month not found" });
+    }
+    res.json(user);
+  });
 });
 
+
+// hozza ad egy uj honapot
 app.post("/api/honapok", (req, res) => {
-  const newHonap = req.body;
-  honapok.push(newHonap);
-  res.status(201).json(newHonap);
+  db.run(
+    "INSERT INTO honapok (name, evszak, photoUrl, leiras) VALUES (?, ?, ?, ?)",
+    [req.body.name, req.body.evszak, req.body.photoUrl, req.body.leiras],
+    function (err) {
+      if (err) {
+        return res.status(500).json({ message: err.message });
+      }
+      res.status(201).json({ ...req.body, name: this.lastName });
+    }
+  );
 });
 
-app.listen(3000, () => {
-  console.log("Server is running on port 3000");
+// szerkeszt 1 honapot
+app.put("/api/honapok/:name", (req, res) => {
+  const name = req.params.name;
+  db.run(
+    "UPDATE honapok SET name = ?, evszak = ?, photoUrl = ?, leiras = ? WHERE name = ?",
+    [req.body.name, req.body.evszak, req.body.photoUrl, req.body.leiras, name],
+    function (err) {
+      if (err) {
+        return res.status(500).json({ message: err.message });
+      }
+      res.json({ ...req.body, name: req.params.name});
+    }
+  );
 });
+
+// torol 1 honapot
+
+app.delete("/api/honapok/:name", (req, res) => {
+  const name = req.params.name;
+  db.run("DELETE FROM honapok WHERE name = ?", [name], function (err) {
+    if (err) {
+      return res.status(500).json({ message: err.message });
+    }
+    res.sendStatus(204);
+  });
+});
+app.listen(3000, () => console.log("The app is running on port 3000!"));
