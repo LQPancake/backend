@@ -110,7 +110,7 @@ app.get("/api/honapok/:name", (req, res) => {
     if (!honap) {
       return res.status(404).json({ message: "Month not found" });
     }
-    res.json(user);
+    res.json(honap);
   });
 });
 
